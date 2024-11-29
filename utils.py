@@ -19,8 +19,8 @@ def clean_data(path):
     df = df[col_set]
     return df
 
-def collect_data():
-    month_files = ["data/jfk_2022.csv", "data/jfk_2023.csv"]
+def collect_data(list_of_files):
+    month_files = list_of_files
     month_data = list(map(lambda x: clean_data(path="data/{}".format(x)), month_files))
     collected = functools.reduce(lambda x,y: pd.concat([x,y]), month_data).reset_index(drop=True)
     return collected
