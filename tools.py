@@ -29,7 +29,6 @@ def simulate(policy, env, num_sim=50000):
             # Take a step in the environment
             (x_t, _), step_cost, done = env.step(u_t)
             cost += step_cost
-            # print("x_t: ", x_t, "u_t: ", u_t, "cost: ", cost)
             t += 1
         # Add the cost
         total_cost += cost
