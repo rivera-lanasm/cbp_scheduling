@@ -13,20 +13,15 @@ def clean_data(path):
     col_set = [
         "FlightDate",
         "HourRange",
-        "AirportCode",
-
         "TotalPassengerCount",
         "AverageWait",
-        "BoothsUsed",
-
-        "FlightCount"
-        ]
+        "BoothsUsed"]
     df = df[col_set]
     return df
 
-def collect_data(airport_code):
-    month_files = os.listdir("data/{}".format(airport_code))
-    month_data = list(map(lambda x: clean_data(path="data/{}/{}".format(airport_code, x)), month_files))
+def collect_data():
+    month_files = ["data/jfk_2022.csv", "data/jfk_2023.csv"]
+    month_data = list(map(lambda x: clean_data(path="data/{}".format(x)), month_files))
     collected = functools.reduce(lambda x,y: pd.concat([x,y]), month_data).reset_index(drop=True)
     return collected
 
