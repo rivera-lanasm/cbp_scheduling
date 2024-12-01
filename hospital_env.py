@@ -29,7 +29,7 @@ class HospitalEnv(object):
         self.deterministic = deterministic
 
         # Clip the arrival distribution to be 0 to maximum capacity
-        self.arrival_distrib = np.clip(arrival_distrib, 0, waiting_capacity)
+        self.arrival_distrib = arrival_distrib # np.clip(arrival_distrib, 0, waiting_capacity)
 
         # Define the state space and action space
         self.state_space = np.arange(waiting_capacity + 1)
@@ -41,26 +41,75 @@ class HospitalEnv(object):
         Return the number of new patients arriving at the hospital at time t.
         Should be less than the waiting capacity.
         '''
+        arr_index = (t + self.open_time) % 24
+        # print("next arrival index: {}".format(arr_index))
         return self.arrival_distrib[(t + self.open_time) % 24]
 
     
+    # def f(self, x_t, u_t, t, d=-1):
+    #     '''
+    #     The transition function,
+    #     return x_{t+1}, the queue length at time t + 1.
+    #     '''
+    #     # If d is not specified, use the actual number from the given distribution
+    #     d = self.d_t(t) if d == -1 else d 
+    #     # return np.max([x_t + d - 2 * (u_t + 10), 0])
+    #     return int(np.clip(x_t + d - 2 * (u_t + 10), 0, self.waiting_capacity))
+
     def f(self, x_t, u_t, t, d=-1):
         '''
         The transition function,
-        return x_{t+1}, the queue length at time t + 1.
+        return x_{t+1}, the queue length at time t + 1 and the number of excess patients.
         '''
         # If d is not specified, use the actual number from the given distribution
         d = self.d_t(t) if d == -1 else d 
-        # return np.max([x_t + d - 2 * (u_t + 10), 0])
-        return int(np.clip(x_t + d - 2 * (u_t + 10), 0, self.waiting_capacity))
+
+        # Calculate the new queue length before clipping
+        booth_op_rate = 20
+        min_booth = 1
+        new_queue_length = x_t + d - booth_op_rate * (u_t + min_booth)
+        
+        # Clip the queue length to the maximum capacity
+        clipped_queue = int(np.clip(new_queue_length, 0, self.waiting_capacity))
+        
+        # Calculate the number of excess patients
+        excess_patients = max(0, new_queue_length - self.waiting_capacity)
+
+        return clipped_queue, excess_patients
 
 
-    def g_t(self, x_t, u_t):
-        '''
-        Cost function for action u_t at state x_t
-        '''
-        return self.patient_waiting_cost * x_t + self.doc_cost * u_t
+    # def g_t(self, x_t, u_t):
+    #     '''
+    #     Cost function for action u_t at state x_t
+    #     '''
+    #     return self.patient_waiting_cost * x_t + self.doc_cost * u_t
     
+
+    def g_t(self, x_t, u_t, excess_patients=0):
+        '''
+        Cost function for action u_t at state x_t, including excess patient costs.
+        
+        Parameters:
+            x_t (int): Current queue length.
+            u_t (int): Number of on-demand doctors deployed.
+            excess_patients (int): Number of patients exceeding queue capacity.
+        
+        Returns:
+            cost (float): Total cost for the given state and action.
+        '''
+        # Calculate waiting cost for patients in the queue
+        waiting_cost = self.patient_waiting_cost * x_t
+        
+        # Calculate cost of deploying on-demand doctors
+        doctor_cost = self.doc_cost * u_t
+        
+        # Calculate cost of excess patients
+        excess_cost = self.patient_not_treated_cost * excess_patients
+        
+        # Total cost
+        return waiting_cost + doctor_cost + excess_cost
+
+
 
     def g_T(self, x_T):
         '''
@@ -78,7 +127,7 @@ class HospitalEnv(object):
         return self.current_state, self.current_time
 
     
-    def step(self, action, render=False):
+    def step(self, action, render=True):
         '''
         Take an action and return the next state and cost
 
@@ -99,7 +148,7 @@ class HospitalEnv(object):
         if render:
             print(f"  * {new_patient_count} new patients arrived")
             print(f"  * Using {int(action)} on-demand doctors")
-        next_state = self.f(self.current_state, action, self.current_time, new_patient_count)
+        next_state, excess_patients = self.f(self.current_state, action, self.current_time, new_patient_count)
         
         # Update the time and state
         self.current_time += 1
@@ -107,7 +156,7 @@ class HospitalEnv(object):
 
         done = self.current_time == self.T
         
-        cost = self.g_t(self.current_state, action)
+        cost = self.g_t(self.current_state, action, excess_patients)
         if done:
             cost += self.g_T(self.current_state)
 
@@ -196,25 +245,6 @@ class HospitalEnv(object):
         ax[0].set_xlabel("Hour")
         ax[0].set_ylabel("Queue Length")
 
-        # # Visualize the number of arrivals in a bar chart
-        # ax[1].bar(np.arange(24), self.arrival_distrib, color='grey')
-        # # Color the bar of the open hours
-        # ax[1].bar(np.arange(self.open_time, self.open_time + self.T), 
-        #           self.arrival_distrib[self.open_time:self.open_time + self.T], color='salmon')
-        # # Set a legend for the open/closed hours
-        # ax[1].legend(['Closed', 'Open'], loc='upper left')
-        # # Make the x-axis ticks time
-        # ax[1].set_xticks(np.arange(24))
-        # ax[1].set_xticklabels([f"{i}:00" for i in range(24)])
-        # # Make x tick labels 45 degrees
-        # plt.setp(ax[1].get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-
-        # ax[1].set_xlabel("Time")
-        # ax[1].set_ylabel("# of new patients arriving")
-
-        # # Plot the mean of arrivals
-        # ax[1].axhline(y=np.mean(self.arrival_distrib), color='darkgrey', linestyle='--', label='Mean')
 
         plt.tight_layout()
-        # plt.savefig(f"figs/{title}.png", dpi=300)
         plt.show()
