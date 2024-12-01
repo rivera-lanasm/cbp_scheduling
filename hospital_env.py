@@ -68,11 +68,6 @@ class HospitalEnv(object):
         booth_op_rate = 20
         min_booth = 1
         new_queue_length = x_t + d - booth_op_rate * (u_t + min_booth)
-        # print("============= Transition Func")
-        # print("queue at start: {}".format(x_t))
-        # print("new arrivals: {}".format(d))
-        # print("passengers processed by booths: ".format(int(booth_op_rate * (u_t + min_booth))))
-        # print("increase to queue: {}".format(new_queue_length - x_t))
         
         # Clip the queue length to the maximum capacity
         clipped_queue = int(np.clip(new_queue_length, 0, self.waiting_capacity))
@@ -112,7 +107,7 @@ class HospitalEnv(object):
         excess_cost = self.patient_not_treated_cost * excess_patients
         
         # Total cost
-        return waiting_cost + doctor_cost #+ excess_cost
+        return waiting_cost + doctor_cost + excess_cost
 
 
 

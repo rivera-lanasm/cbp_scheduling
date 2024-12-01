@@ -89,5 +89,5 @@ class BISolverSto(object):
                         U_t[x][t] = u
             # time check
             end_time = time.time()
-            print("index process took: {}".format(round((end_time-start_time)/60, 3)) ) 
+            print("index process took: {}".format(round((end_time-start_time)/1, 3)) ) 
         return U_t, J_t
