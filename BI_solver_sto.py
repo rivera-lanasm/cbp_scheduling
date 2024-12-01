@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.stats import poisson
+import time
 
 
 class BISolverSto(object):
@@ -43,7 +44,7 @@ class BISolverSto(object):
         # Iterate through all possible number of new patients
         for d in range(self.waiting_capacity + 1):
             # Compute the next state given the number of new patients
-            next_state = self.f(x_t, u_t, t, d)
+            next_state, excess_patients = self.f(x_t, u_t, t, d)
             # If this next state can be reached
             if next_state < len(self.state_space):
                 # Compute the probability of transition
@@ -74,6 +75,8 @@ class BISolverSto(object):
 
         # Iterate backward
         for t in range(self.T - 1, -1, -1):
+            start_time = time.time()
+            print("-----processing state {}".format(t))
             for x in self.state_space:
                 for u in self.action_space:
 
@@ -84,5 +87,7 @@ class BISolverSto(object):
                     if cost < J_t[x][t]:
                         J_t[x][t] = cost
                         U_t[x][t] = u
-
+            # time check
+            end_time = time.time()
+            print("index process took: {}".format(round((end_time-start_time)/60, 3)) ) 
         return U_t, J_t
