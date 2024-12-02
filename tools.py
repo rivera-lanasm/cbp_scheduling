@@ -181,6 +181,37 @@ def plot_state_visited_count(self, visit_count, figsize, title):
     
     plt.show()
 
+def simulate_real(policy, env, arrival_dist_set):
+    '''
+    Simulate the environment with the given policy,
+    the policy must be a discrete table.
+
+    Return the average cost
+    '''
+    print(f"[ Simulating for {len(arrival_dist_set)} episodes... ]")
+
+    total_cost = 0
+
+    # Simulate the environment for num_sim times
+    for arr in arrival_dist_set:
+        # Reset the environment
+        x_t, _ = env.reset()
+        # overwrite arriaval dist
+        env.arrival_dist = arr
+        # set other vars
+        cost, done, t = 0, False, 0
+        # Iterate through all time steps
+        while not done:
+            # Take the action given by the policy
+            u_t = policy[x_t][t]
+            # Take a step in the environment
+            (x_t, _), step_cost, done = env.step(u_t)
+            cost += step_cost
+            t += 1
+        # Add the cost
+        total_cost += cost
+
+    return total_cost / len(arrival_dist_set)
 
 if __name__ == "__main__":
     plot_scores([4416, 3717], ["A", "B"], "Test")

@@ -65,7 +65,7 @@ class HospitalEnv(object):
         d = self.d_t(t) if d == -1 else d 
 
         # Calculate the new queue length before clipping
-        booth_op_rate = 20
+        booth_op_rate = 43
         min_booth = 1
         new_queue_length = x_t + d - booth_op_rate * (u_t + min_booth)
         
@@ -146,8 +146,8 @@ class HospitalEnv(object):
             new_patient_count = np.random.poisson(d_mean)
 
         if render:
-            print(f"  * {new_patient_count} new patients arrived")
-            print(f"  * Using {int(action)} on-demand doctors")
+            print(f"  * {new_patient_count} new passengers arrived")
+            print(f"  * Using {int(action)} on-demand officers")
         next_state, excess_patients = self.f(self.current_state, action, self.current_time, new_patient_count)
         
         # Update the time and state
@@ -181,10 +181,10 @@ class HospitalEnv(object):
 
         # Visualize the optimal policy in a heatmap
         heatmap = sns.heatmap(U_t, cmap=sns.diverging_palette(230, 20, as_cmap=True),
-                    yticklabels=5, cbar_kws={'ticks': np.arange(self.max_on_demand_doc + 1)}, ax=ax[0])
+                    yticklabels=25, cbar_kws={'ticks': np.arange(self.max_on_demand_doc + 1)}, ax=ax[0])
         
         cbar = heatmap.collections[0].colorbar
-        cbar.set_label('# of on-demand doc')
+        cbar.set_label('# of on-demand Officers')
         
         # Invert the y axis to have the first row at the top
         ax[0].invert_yaxis()
@@ -221,30 +221,55 @@ class HospitalEnv(object):
         plt.show()
 
 
-    def visualize_cost(self, U_t, title='fig', figsize=(8, 8)):
+    def visualize_cost(self, J_t, title='fig', figsize=(8, 8)):
         '''
-        Visualize the given policy
+        Visualize the given cost-to-go function J_t as a heatmap.
         '''
-        _, ax = plt.subplots(nrows=1, figsize=figsize, gridspec_kw={'height_ratios': [3, 1]})
+        _, ax = plt.subplots(nrows=2, figsize=figsize, gridspec_kw={'height_ratios': [3, 1]})
         plt.suptitle(title)
 
+        #max value of the cost-to-go function
+        max_val = np.max(J_t)
+
         # Visualize the optimal policy in a heatmap
-        heatmap = sns.heatmap(U_t, cmap=sns.diverging_palette(230, 20, as_cmap=True),
-                    yticklabels=5, cbar_kws={'ticks': np.arange(self.max_on_demand_doc + 1)}, ax=ax[0])
-        
+        heatmap = sns.heatmap(J_t, cmap=sns.diverging_palette(230, 20, as_cmap=True),
+                    yticklabels=25, cbar_kws={'ticks': np.linspace(0, max_val, 11)}, ax=ax[0])
+
         cbar = heatmap.collections[0].colorbar
-        cbar.set_label('# of on-demand doc')
-        
+        cbar.set_label('$ cost-to-go')
+
         # Invert the y axis to have the first row at the top
         ax[0].invert_yaxis()
         # Hide the ticks
         ax[0].tick_params(axis='both', which='both', length=0)
+
         # Align the x-axis ticks with the time
-        ax[0].set_xticklabels([(i + self.open_time) % 24 for i in range(self.T)])
+        ax[0].set_xticklabels([(i + self.open_time) % 24 for i in range(self.T +1)])
 
         ax[0].set_xlabel("Hour")
+
+
         ax[0].set_ylabel("Queue Length")
 
+        # Visualize the number of arrivals in a bar chart
+        ax[1].bar(np.arange(24), self.arrival_distrib, color='grey')
+        # Color the bar of the open hours
+        ax[1].bar(np.arange(self.open_time, self.open_time + self.T), 
+                    self.arrival_distrib[self.open_time:self.open_time + self.T], color='salmon')
+        # Set a legend for the open/closed hours
+        ax[1].legend(['Closed', 'Open'], loc='upper left')
+        # Make the x-axis ticks time
+        ax[1].set_xticks(np.arange(24))
+        ax[1].set_xticklabels([f"{i}:00" for i in range(24)])
+        # Make x tick labels 45 degrees
+        plt.setp(ax[1].get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+
+        ax[1].set_xlabel("Time")
+        ax[1].set_ylabel("# of new patients arriving")
+
+        # Plot the mean of arrivals
+        ax[1].axhline(y=np.mean(self.arrival_distrib), color='darkgrey', linestyle='--', label='Mean')
 
         plt.tight_layout()
+        # plt.savefig(f"figs/{title}.png", dpi=300)
         plt.show()
