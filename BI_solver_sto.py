@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import poisson
 import time
-
+import multiprocessing
 
 class BISolverSto(object):
 
@@ -58,6 +58,8 @@ class BISolverSto(object):
         return trans_prob
 
 
+
+
     def backward_induction(self):
         '''
         Perform backward induction to find the optimal policy and cost.
@@ -90,4 +92,66 @@ class BISolverSto(object):
             # time check
             end_time = time.time()
             print("index process took: {}".format(round((end_time-start_time)/1, 3)) ) 
+        return U_t, J_t
+    
+    def _compute_cost_for_state(self, args):
+        """
+        Helper function to compute the optimal cost and action for a given state.
+        
+        Args:
+        - args (tuple): (state, t, action_space, J_t, g_t, p_trans)
+        
+        Returns:
+        - (state, optimal_cost, optimal_action): Computed optimal values for the given state.
+        """
+        x, t, action_space, J_t, g_t, p_trans = args
+        min_cost = np.inf
+        optimal_action = None
+
+        for u in action_space:
+            cost = g_t(x, u) + p_trans(x, u, t).T @ J_t[:, t + 1]
+            if cost < min_cost:
+                min_cost = cost
+                optimal_action = u
+        
+        return x, min_cost, optimal_action
+
+    def backward_induction_multiprocessing(self):
+        """
+        Perform backward induction to find the optimal policy and cost using multiprocessing.
+
+        Returns:
+        - U_t: Optimal policy matrix
+        - J_t: Optimal cost matrix
+        """
+        # Matrix of optimal policy for all states and actions
+        U_t = np.zeros((len(self.state_space), self.T))
+        # Matrix of cost for all states and actions
+        J_t = np.inf * np.ones((len(self.state_space), self.T + 1))
+
+        # Initialize the final cost
+        for x in self.state_space:
+            J_t[x][self.T] = self.g_T(x)
+
+        # Iterate backward
+        for t in range(self.T - 1, -1, -1):
+            start_time = time.time()
+            print(f"----- Processing time step {t} -----")
+
+            # Prepare arguments for multiprocessing
+            args = [(x, t, self.action_space, J_t, self.g_t, self.p_trans) for x in self.state_space]
+
+            # Use multiprocessing to compute costs for all states in parallel (except for 4 cores)
+            with multiprocessing.Pool(processes=multiprocessing.cpu_count()-4) as pool:
+                results = pool.map(self._compute_cost_for_state, args)
+
+            # Update the cost and policy matrices based on results
+            for x, min_cost, optimal_action in results:
+                J_t[x][t] = min_cost
+                U_t[x][t] = optimal_action
+
+            # Time check
+            end_time = time.time()
+            print(f"Time step {t} processing took: {round((end_time - start_time), 3)} seconds.")
+
         return U_t, J_t
